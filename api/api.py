@@ -23,7 +23,7 @@ class MessageManager():
 
 message_fields = {
   'id' : fields.Integer,
-  'uri' : fields.Url('message_endpoint')
+  'uri' : fields.Url('message_endpoint'),
   'message' : fields.String,
   'duration' : fields.Integer,
   'creation_date' : fields.DateTime,
@@ -34,7 +34,7 @@ message_fields = {
 
 message_manager = MessageManager()
 
-class Message(Resource):
+class Message(Resource): 
   def abort_if_message_doesnt_exist(self, id):
     if id not in message_manager.messages:
       abort(
@@ -70,4 +70,31 @@ class Message(Resource):
     if 'printed_once' in args:
       message.printed_once = args['printed_once']
     return message
-    
+  
+class MessageList(Resource):
+  @marshal_with(message_fields)
+  def get(self):
+    return [v for v in message_manager.messages.values()]
+  
+  @marshal_with(message_fields)
+  def post(self):
+    parser = reqparse.RequestParser()
+    parser.add_argument('message',type=str, required=True, help='Message cannot be blank!')
+    parser.add_argument('duration',type=int, required=True, help='Duration cannot be blank!')
+    parser.add_argument('message_category',type=str, required=True, help='message_category cannot be blank!')
+    args = parser.parse_args()
+    message = MessageModel(
+      message=args['message'],
+      duration=args['duration'],
+      creation_date=datetime.now(utc),
+      message_category=args['message_category']
+    )
+    message_manager.insert_message(message)
+    return message, status.HTTP_201_CREATED
+  
+app = Flask(__name__)
+api = Api(app)
+api.add_resource(MessageList, '/api/messages/')
+api.add_resource(Message, '/api/messages/<int:id>',endpoint='message_endpint')
+if __name__ == '__main__':
+  app.run(debug=True)
